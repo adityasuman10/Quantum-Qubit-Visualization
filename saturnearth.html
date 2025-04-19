@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Animated Bloch Sphere</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        body { margin: 0; overflow: hidden; }
+        #info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0);
+            padding: 15px;
+            border-radius: 5px;
+            font-family: Arial, sans-serif;
+            color: #fff;
+            z-index: 100;
+        }
+        .pole-label {
+            position: absolute;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 20px;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            z-index: 100;
+        }
+        canvas { 
+            position: fixed; 
+            z-index: 0; 
+        }
+        .controls {
+            margin-top: 10px;
+        }
+        input[type="range"] {
+            width: 100px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+    <div id="info-panel">
+        <div>θ: <span id="theta">0</span>° <input type="range" id="thetaSlider" min="0" max="180" step="1" disabled></div>
+        <div>φ: <span id="phi">0</span>° <input type="range" id="phiSlider" min="0" max="360" step="1" disabled></div>
+        <div>State: |ψ⟩ = <span id="state">|0⟩</span></div>
+        <div>Note - you can zoom into the qubit<div>
+        <div class="controls">
+            <button id="toggleBtn">Stop</button>
+        </div>
+    </div>
+
+    <div class="pole-label" id="pole0">|0⟩</div>
+    <div class="pole-label" id="pole1">|1⟩</div>
+
+    <body>
+        <h1>Quantum qubit Visualiztion</h1>
+        <p>This is a paragraph.</p>
+        
+
+        <math xmlns="http://www.w3.org/1998/Math/MathML">
+            <mrow>
+                <mi>|ψ⟩</mi>
+                <mo>=</mo>
+                <mi>cos</mi>
+                <mo>(</mo>
+                <mfrac>
+                    <mi>θ</mi>
+                    <mn>2</mn>
+                </mfrac>
+                <mo>)</mo>
+                <mo>|0⟩</mo>
+                <mo>+</mo>
+                <msup>
+                    <mi>e</mi>
+                    <mrow><mi>iϕ</mi></mrow>
+                </msup>
+                <mi>sin</mi>
+                <mo>(</mo>
+                <mfrac>
+                    <mi>θ</mi>
+                    <mn>2</mn>
+                </mfrac>
+                <mo>)</mo>
+                <mo>|1⟩</mo>
+            </mrow>
+        </math>
+        <p></p>
+        <math xmlns="http://www.w3.org/1998/Math/MathML">
+            <mrow>
+                <mi>|ψ⟩</mi>
+                <mo>=</mo>
+                <mi>a</mi>
+                <mo>|0⟩</mo>
+                <mo>+</mo>
+                <mi>β</mi>
+                <mo>|1⟩</mo>
+            </mrow>
+        </math>
+        
+      </body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script>
+
+        let scene, camera, renderer, sphere, arrow, controls;
+        let currentTheta = Math.PI/2 ;
+        let currentPhi = 0;
+        let time = 0;
+        let isAnimating = true;
+        let thetaSlider, phiSlider, toggleBtn;
+
+        init();
+        animate();
+
+        function init() { 
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x111111);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+            camera.position.z = 5;
+
+           
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            
+            createBlochSphere();
+            
+            
+            const axesHelper = new THREE.AxesHelper(3);
+
+      
+        const lineX = axesHelper.geometry.attributes.color;
+        lineX.setXYZ(0, 1, 0, 1);
+        lineX.setXYZ(1, 1, 0, 1);
+
+        const lineY = axesHelper.geometry.attributes.color;
+        lineY.setXYZ(2, 1, 1, 0); 
+        lineY.setXYZ(3, 1, 1, 0);
+
+        const lineZ = axesHelper.geometry.attributes.color;
+        lineZ.setXYZ(4, 0, 1, 1); 
+        lineZ.setXYZ(5, 0, 1, 1);
+
+
+axesHelper.geometry.attributes.color.needsUpdate = true;
+scene.add(axesHelper);
+            createStateVector();
+
+         
+            createGridSystem();
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            thetaSlider = document.getElementById('thetaSlider');
+            phiSlider = document.getElementById('phiSlider');
+            toggleBtn = document.getElementById('toggleBtn');
+            toggleBtn.addEventListener('click', toggleAnimation);
+        }
+
+        function toggleAnimation() {
+            isAnimating = !isAnimating;
+            thetaSlider.disabled = isAnimating;
+            phiSlider.disabled = isAnimating;
+            toggleBtn.textContent = isAnimating ? 'Pause' : 'Play';
+        }
+
+        function createBlochSphere() {
+            const geometry = new THREE.SphereGeometry(2, 64, 64);
+            const material = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.3
+            });
+            sphere = new THREE.Mesh(geometry, material);
+            scene.add(sphere);
+        }
+
+        function createStateVector() {
+            const direction = new THREE.Vector3();
+            arrow = new THREE.ArrowHelper(
+                direction.normalize(),
+                new THREE.Vector3(0, 0, 0),
+                2.2,
+                0xff0000,
+                0.2,
+                0.1
+            );
+            scene.add(arrow);
+        }
+
+        function createGridSystem() {
+          
+            const meridianMaterial = new THREE.LineBasicMaterial({ color: 0x444444 });
+            for(let i = 0; i < 16; i++) {
+                const points = [];
+                for(let j = 0; j <= 64; j++) {
+                    const theta = (j / 64) * Math.PI * 2;
+                    points.push(new THREE.Vector3(
+                        2 * Math.cos(theta),
+                        2 * Math.sin(theta) * Math.cos(i * Math.PI/8),
+                        2 * Math.sin(theta) * Math.sin(i * Math.PI/8)
+                    ));
+                }
+                scene.add(new THREE.Line(
+                    new THREE.BufferGeometry().setFromPoints(points),
+                    meridianMaterial
+                ));
+            }
+
+           
+            const parallelMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
+            for(let i = 1; i < 8; i++) {
+                const points = [];
+                const phi = (i/8) * Math.PI;
+                const y = 2 * Math.cos(phi);
+                const r = 2 * Math.sin(phi);
+                
+                for(let j = 0; j <= 64; j++) {
+                    const theta = (j/64) * Math.PI * 2;
+                    points.push(new THREE.Vector3(
+                        r * Math.cos(theta),
+                        y,
+                        r * Math.sin(theta)
+                    ));
+                }
+                scene.add(new THREE.Line(
+                    new THREE.BufferGeometry().setFromPoints(points),
+                    parallelMaterial
+                ));
+            }
+        }
+       
+        function updateQuantumState() {
+            if (isAnimating) {
+                currentTheta = Math.PI/2 + Math.PI/4 * Math.sin(time * 0.5);
+                currentPhi = time * 0.5;
+                thetaSlider.value = currentTheta * 180 / Math.PI;
+                phiSlider.value = (currentPhi * 180 / Math.PI) % 360;
+            } else {
+                currentTheta = thetaSlider.value * Math.PI / 180;
+                currentPhi = phiSlider.value * Math.PI / 180;
+            }
+
+            const x = Math.sin(currentTheta) * Math.cos(currentPhi);
+            const y = Math.cos(currentTheta);
+            const z = Math.sin(currentTheta) * Math.sin(currentPhi);
+
+            arrow.setDirection(new THREE.Vector3(x, y, z).normalize());
+            
+            document.getElementById('theta').textContent = Math.round(currentTheta * 180/Math.PI);
+            document.getElementById('phi').textContent = Math.round(currentPhi * 180/Math.PI);
+            document.getElementById('state').textContent = 
+            
+                `cos  (${(currentTheta/2).toFixed(2)}) |0⟩ + e^i ${currentPhi.toFixed(2)} sin  (${(currentTheta/2).toFixed(2)}) |1⟩`;
+
+
+                
+        }
+
+        function updateLabels() {
+            const pole0Pos = new THREE.Vector3(0, 2, 0);
+            const pole1Pos = new THREE.Vector3(0, -2, 0);
+            const canvas = renderer.domElement;
+
+            pole0Pos.project(camera);
+            document.getElementById('pole0').style.left = `${(pole0Pos.x * 0.5 + 0.5) * canvas.clientWidth}px`;
+            document.getElementById('pole0').style.top = `${(pole0Pos.y * -0.5 + 0.5) * canvas.clientHeight}px`;
+
+            pole1Pos.project(camera);
+            document.getElementById('pole1').style.left = `${(pole1Pos.x * 0.5 + 0.5) * canvas.clientWidth}px`;
+            document.getElementById('pole1').style.top = `${(pole1Pos.y * -0.5 + 0.5) * canvas.clientHeight}px`;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (isAnimating) time += 0.01;
+            
+            updateQuantumState();
+            sphere.rotation.y = time * 0.5;
+            controls.update();
+            updateLabels();
+            
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
